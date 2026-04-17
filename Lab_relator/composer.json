@@ -1,0 +1,13 @@
+{
+    "name": "unieinstein/lab-relator",
+    "description": "Sistema Relator de Problemas em Laboratório",
+    "require": {
+        "php": "^8.1",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}
