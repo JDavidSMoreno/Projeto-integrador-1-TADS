@@ -91,10 +91,17 @@ abstract class BaseController
     {
         http_response_code($status);
 
-        $title = $status === 403 ? 'Acesso negado' : 'Pagina nao encontrada';
-        $message = $status === 403
-            ? 'Voce nao tem permissao para acessar esta pagina.'
-            : 'A pagina solicitada nao foi encontrada.';
+        $title = match ($status) {
+            403 => 'Acesso negado',
+            500 => 'Erro interno',
+            default => 'Pagina nao encontrada',
+        };
+
+        $message = match ($status) {
+            403 => 'Voce nao tem permissao para acessar esta pagina.',
+            500 => 'Nao foi possivel concluir a requisicao.',
+            default => 'A pagina solicitada nao foi encontrada.',
+        };
 
         $view = $this->viewsPath . '/errors/' . $status . '.php';
         if (is_file($view)) {

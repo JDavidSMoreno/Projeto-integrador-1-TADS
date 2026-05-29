@@ -3,7 +3,12 @@ declare(strict_types=1);
 
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\EquipamentoController;
+use App\Controllers\LaboratorioController;
 use App\Controllers\PageController;
+use App\Controllers\ProfessorController;
+use App\Controllers\TecnicoController;
+use App\Controllers\TipoProblemaController;
 use App\Core\Router;
 use App\Helpers\Csrf;
 
@@ -56,25 +61,145 @@ $router->post('/auth/recuperar', [AuthController::class, 'processRecuperar'])->m
 $router->get('/auth/resetar/{token}', [AuthController::class, 'resetar']);
 $router->post('/auth/resetar/{token}', [AuthController::class, 'processResetar'])->middleware('csrf');
 
-$router->get('/laboratorio', [PageController::class, 'laboratorio'])
+$router->get('/laboratorio', [LaboratorioController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
+$router->get('/laboratorio/novo', [LaboratorioController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/laboratorio/{id}/editar', [LaboratorioController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/laboratorio/editar/{id}', [LaboratorioController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/laboratorio/salvar', [LaboratorioController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/{id}/atualizar', [LaboratorioController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/atualizar', [LaboratorioController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/{id}/toggle', [LaboratorioController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/status', [LaboratorioController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-$router->get('/equipamento', [PageController::class, 'equipamento'])
+$router->get('/equipamento/por-laboratorio', [EquipamentoController::class, 'porLaboratorio'])
+    ->middleware('auth');
+$router->get('/equipamento', [EquipamentoController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
+$router->get('/equipamento/novo', [EquipamentoController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/equipamento/{id}/editar', [EquipamentoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/equipamento/editar/{id}', [EquipamentoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/equipamento/salvar', [EquipamentoController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/{id}/atualizar', [EquipamentoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/atualizar', [EquipamentoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/{id}/toggle', [EquipamentoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/status', [EquipamentoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-$router->get('/usuario/professor', [PageController::class, 'professores'])
+$router->get('/usuario/professor', [ProfessorController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
+$router->get('/usuario/professor/novo', [ProfessorController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/professor/{id}/editar', [ProfessorController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/professor/editar/{id}', [ProfessorController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/usuario/professor/salvar', [ProfessorController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/professor/{id}/atualizar', [ProfessorController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/professor/{id}/toggle', [ProfessorController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-$router->get('/usuario/tecnico', [PageController::class, 'tecnicos'])
+$router->get('/usuario/tecnico', [TecnicoController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
+$router->get('/usuario/tecnico/novo', [TecnicoController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/tecnico/{id}/editar', [TecnicoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/tecnico/editar/{id}', [TecnicoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/usuario/tecnico/salvar', [TecnicoController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/tecnico/{id}/atualizar', [TecnicoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/tecnico/{id}/toggle', [TecnicoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-$router->get('/tipo-problema', [PageController::class, 'tiposProblema'])
+$router->get('/tipo-problema', [TipoProblemaController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
+$router->get('/tipo-problema/novo', [TipoProblemaController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/tipo-problema/{id}/editar', [TipoProblemaController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/tipo-problema/salvar', [TipoProblemaController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/tipo-problema/{id}/atualizar', [TipoProblemaController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/tipo-problema/{id}/toggle', [TipoProblemaController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
 $router->get('/ocorrencia', [PageController::class, 'ocorrencias'])
     ->middleware('auth')

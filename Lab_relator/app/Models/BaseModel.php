@@ -22,7 +22,7 @@ abstract class BaseModel
     }
 
     /** @param array<string, mixed> $conditions */
-    public function findAll(array $conditions = [], string $orderBy = ''): array
+    public function findAll(array $conditions = [], string $orderBy = '', ?int $limit = null, int $offset = 0): array
     {
         $table = $this->identifier(static::$table);
         $sql = 'SELECT * FROM ' . $table;
@@ -43,7 +43,35 @@ abstract class BaseModel
             $sql .= ' ORDER BY ' . $this->orderBy($orderBy);
         }
 
+        if ($limit !== null) {
+            $sql .= ' LIMIT ' . max(1, $limit);
+            if ($offset > 0) {
+                $sql .= ' OFFSET ' . max(0, $offset);
+            }
+        }
+
         return $this->query($sql, $params)->fetchAll();
+    }
+
+    /** @param array<string, mixed> $conditions */
+    public function count(array $conditions = []): int
+    {
+        $table = $this->identifier(static::$table);
+        $sql = 'SELECT COUNT(*) FROM ' . $table;
+        $params = [];
+
+        if ($conditions !== []) {
+            $where = [];
+            foreach ($conditions as $column => $value) {
+                $param = 'where_' . $this->identifier($column);
+                $where[] = $this->identifier($column) . ' = :' . $param;
+                $params[$param] = $value;
+            }
+
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+
+        return (int)$this->query($sql, $params)->fetchColumn();
     }
 
     public function findById(int|string $id): array|false
@@ -117,7 +145,7 @@ abstract class BaseModel
     }
 
     /** @param array<string|int, mixed> $params */
-    protected function query(string $sql, array $params = []): PDOStatement
+    public function query(string $sql, array $params = []): PDOStatement
     {
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
