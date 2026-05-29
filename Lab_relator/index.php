@@ -1,30 +1,39 @@
 <?php
 declare(strict_types=1);
 
-/**
- * Front controller do sistema.
- *
- * Processo de autenticação documentado:
- * 1) Inicializa sessão e token CSRF.
- * 2) Normaliza rota atual (compatível com execução em subpasta no XAMPP).
- * 3) Se rota for privada e usuário não estiver autenticado, redireciona para login.
- * 4) Em /auth/login (POST), valida CSRF + credenciais e cria sessão do usuário.
- * 5) Em /auth/logout, finaliza sessão de forma segura e volta para login.
- *  gestor@unieinstein.edu.br / Gestor@123
- *  professor@unieinstein.edu.br / Professor@123
- *  tecnico@unieinstein.edu.br / Tecnico@123
- * 
- */
+use App\Controllers\AuthController;
+use App\Controllers\DashboardController;
+use App\Controllers\EquipamentoController;
+use App\Controllers\LaboratorioController;
+use App\Controllers\PageController;
+use App\Controllers\ProfessorController;
+use App\Controllers\TecnicoController;
+use App\Controllers\TipoProblemaController;
+use App\Core\Router;
+use App\Helpers\Csrf;
+
+$sessionPath = session_save_path();
+if ($sessionPath === '' || !is_dir($sessionPath) || !is_writable($sessionPath)) {
+    $fallbackSessionPath = __DIR__ . '/storage/sessions';
+    if (!is_dir($fallbackSessionPath)) {
+        mkdir($fallbackSessionPath, 0775, true);
+    }
+
+    session_save_path($fallbackSessionPath);
+}
+
 session_start();
 
-/** Base path da aplicação (ex.: /Lab_relator quando rodando em subpasta). */
+require __DIR__ . '/vendor/autoload.php';
+
+date_default_timezone_set('America/Sao_Paulo');
+
 $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
 $basePath = $scriptDir === '/' ? '' : rtrim($scriptDir, '/');
 
-/**
- * Compatibilidade para execução em subpasta:
- * converte href/src/action iniciados com "/" para "/{basePath}/...".
- */
+define('APP_ROOT', __DIR__);
+define('APP_BASE_PATH', $basePath);
+
 if ($basePath !== '') {
     ob_start(static function (string $html) use ($basePath): string {
         return (string)preg_replace(
@@ -35,239 +44,181 @@ if ($basePath !== '') {
     });
 }
 
-/**
- * Redireciona para uma rota interna respeitando base path.
- */
-function redirectTo(string $path, string $basePath): void
-{
-    $safePath = '/' . ltrim($path, '/');
-    $location = ($basePath !== '' ? $basePath : '') . $safePath;
-    header('Location: ' . $location);
-    exit;
-}
+Csrf::token();
 
-/**
- * Normaliza REQUEST_URI para rotas internas (sempre iniciando com '/').
- */
-function normalizeRoute(string $requestUri, string $basePath): string
-{
-    $path = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+$router = new Router($basePath);
 
-    if ($basePath !== '' && str_starts_with($path, $basePath)) {
-        $path = substr($path, strlen($basePath));
-    }
+$router->get('/', [DashboardController::class, 'index'])->middleware('auth');
+$router->get('/dashboard', [DashboardController::class, 'index'])->middleware('auth');
 
-    if ($path === '' || $path === false) {
-        $path = '/';
-    }
+$router->get('/login', [AuthController::class, 'login']);
+$router->post('/login', [AuthController::class, 'processLogin'])->middleware('csrf');
+$router->get('/auth/login', [AuthController::class, 'login']);
+$router->post('/auth/login', [AuthController::class, 'processLogin'])->middleware('csrf');
+$router->get('/auth/logout', [AuthController::class, 'logout'])->middleware('auth');
+$router->get('/auth/recuperar', [AuthController::class, 'recuperar']);
+$router->post('/auth/recuperar', [AuthController::class, 'processRecuperar'])->middleware('csrf');
+$router->get('/auth/resetar/{token}', [AuthController::class, 'resetar']);
+$router->post('/auth/resetar/{token}', [AuthController::class, 'processResetar'])->middleware('csrf');
 
-    if ($path !== '/') {
-        $path = '/' . trim($path, '/');
-    }
+$router->get('/laboratorio', [LaboratorioController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/laboratorio/novo', [LaboratorioController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/laboratorio/{id}/editar', [LaboratorioController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/laboratorio/editar/{id}', [LaboratorioController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/laboratorio/salvar', [LaboratorioController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/{id}/atualizar', [LaboratorioController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/atualizar', [LaboratorioController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/{id}/toggle', [LaboratorioController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/laboratorio/status', [LaboratorioController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-    return $path;
-}
+$router->get('/equipamento/por-laboratorio', [EquipamentoController::class, 'porLaboratorio'])
+    ->middleware('auth');
+$router->get('/equipamento', [EquipamentoController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/equipamento/novo', [EquipamentoController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/equipamento/{id}/editar', [EquipamentoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/equipamento/editar/{id}', [EquipamentoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/equipamento/salvar', [EquipamentoController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/{id}/atualizar', [EquipamentoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/atualizar', [EquipamentoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/{id}/toggle', [EquipamentoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/equipamento/status', [EquipamentoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-/**
- * Garante existência do token CSRF em sessão.
- */
-function ensureCsrfToken(): void
-{
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-}
+$router->get('/usuario/professor', [ProfessorController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/professor/novo', [ProfessorController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/professor/{id}/editar', [ProfessorController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/professor/editar/{id}', [ProfessorController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/usuario/professor/salvar', [ProfessorController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/professor/{id}/atualizar', [ProfessorController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/professor/{id}/toggle', [ProfessorController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-/**
- * Valida se há um usuário autenticado em sessão.
- */
-function isAuthenticated(): bool
-{
-    return isset($_SESSION['id_usuario'], $_SESSION['tipo_usuario'])
-        && (int)$_SESSION['id_usuario'] > 0;
-}
+$router->get('/usuario/tecnico', [TecnicoController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/tecnico/novo', [TecnicoController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/tecnico/{id}/editar', [TecnicoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/usuario/tecnico/editar/{id}', [TecnicoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/usuario/tecnico/salvar', [TecnicoController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/tecnico/{id}/atualizar', [TecnicoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/usuario/tecnico/{id}/toggle', [TecnicoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-ensureCsrfToken();
+$router->get('/tipo-problema', [TipoProblemaController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/tipo-problema/novo', [TipoProblemaController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/tipo-problema/{id}/editar', [TipoProblemaController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/tipo-problema/salvar', [TipoProblemaController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/tipo-problema/{id}/atualizar', [TipoProblemaController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/tipo-problema/{id}/toggle', [TipoProblemaController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
 
-$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-$uri = normalizeRoute($_SERVER['REQUEST_URI'] ?? '/', $basePath);
+$router->get('/ocorrencia', [PageController::class, 'ocorrencias'])
+    ->middleware('auth')
+    ->middleware('role:professor,gestor');
 
-/** Rotas públicas (não exigem autenticação). */
-$publicRoutes = [
-    '/auth/login',
-    '/auth/recuperar',
-];
+$router->get('/ocorrencia/criar', [PageController::class, 'criarOcorrencia'])
+    ->middleware('auth')
+    ->middleware('role:professor');
 
-/**
- * Usuários temporários de desenvolvimento.
- *
- * Senhas para teste:
- * - gestor@unieinstein.edu.br   => Gestor@123
- * - professor@unieinstein.edu.br=> Professor@123
- * - tecnico@unieinstein.edu.br  => Tecnico@123
- *
- * Observação: manter esse bloco apenas enquanto o login não estiver integrado ao banco.
- */
-$devUsers = [
-    'gestor@unieinstein.edu.br' => [
-        'id' => 1,
-        'nome' => 'Gestor do Sistema',
-        'email' => 'gestor@unieinstein.edu.br',
-        'tipo' => 'gestor',
-        'senha_hash' => '$2y$12$8cyIKgWBYJLRxd.8tm8GnueLy0nVucstBLectoCg3MCuQP32OIGqe',
-    ],
-    'professor@unieinstein.edu.br' => [
-        'id' => 2,
-        'nome' => 'Professor Demo',
-        'email' => 'professor@unieinstein.edu.br',
-        'tipo' => 'professor',
-        'senha_hash' => '$2y$12$OTZbGC9mGPTF4wLihHt6.uzSKdkjHzd6N4dudBWjuqCc.WmRCcW9C',
-    ],
-    'tecnico@unieinstein.edu.br' => [
-        'id' => 3,
-        'nome' => 'Tecnico Demo',
-        'email' => 'tecnico@unieinstein.edu.br',
-        'tipo' => 'tecnico',
-        'senha_hash' => '$2y$12$Rkt2qHkISoeMnXig4Hx8VurKTy1xMrlDXIoVLYHiXDsdKWbbJ1AaG',
-    ],
-];
+$router->get('/monitor', [PageController::class, 'monitor'])
+    ->middleware('auth')
+    ->middleware('role:tecnico,gestor');
 
-/**
- * Middleware simples de autorização.
- * Se a rota não for pública e não houver sessão válida, envia para login.
- */
-if (!in_array($uri, $publicRoutes, true) && !isAuthenticated()) {
-    redirectTo('/auth/login', $basePath);
-}
+$router->get('/monitor/historico', [PageController::class, 'monitor'])
+    ->middleware('auth')
+    ->middleware('role:tecnico,gestor');
 
-switch ($uri) {
-    case '/':
-    case '/dashboard':
-        $pageTitle = 'Dashboard';
-        $activeRoute = 'dashboard';
-        include __DIR__ . '/views/layouts/header.php';
-        echo '<h1 class="text-center mt-5">Dashboard (em breve)</h1>';
-        include __DIR__ . '/views/layouts/footer.php';
-        break;
+$router->get('/relatorio', [PageController::class, 'relatorios'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
 
-    case '/auth/login':
-        if (isAuthenticated()) {
-            redirectTo('/dashboard', $basePath);
-        }
-
-        $error = null;
-
-        if ($method === 'POST') {
-            $csrfToken = (string)($_POST['csrf_token'] ?? '');
-            $email = strtolower(trim((string)($_POST['email'] ?? '')));
-            $senha = (string)($_POST['senha'] ?? '');
-
-            if (!hash_equals((string)($_SESSION['csrf_token'] ?? ''), $csrfToken)) {
-                $error = 'Token de segurança inválido. Atualize a página e tente novamente.';
-            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $error = 'Informe um e-mail válido.';
-            } elseif (strlen($senha) < 8) {
-                $error = 'Informe a senha com pelo menos 8 caracteres.';
-            } else {
-                $user = $devUsers[$email] ?? null;
-
-                if (!$user || !password_verify($senha, (string)$user['senha_hash'])) {
-                    $error = 'E-mail ou senha inválidos.';
-                } else {
-                    session_regenerate_id(true);
-
-                    $_SESSION['id_usuario'] = (int)$user['id'];
-                    $_SESSION['nome_usuario'] = (string)$user['nome'];
-                    $_SESSION['email_usuario'] = (string)$user['email'];
-                    $_SESSION['tipo_usuario'] = (string)$user['tipo'];
-                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-                    redirectTo('/dashboard', $basePath);
-                }
-            }
-        }
-
-        include __DIR__ . '/views/auth/login.php';
-        break;
-
-    case '/auth/logout':
-        /**
-         * Logout seguro:
-         * - limpa os dados da sessão atual
-         * - invalida o cookie de sessão
-         * - destrói a sessão
-         */
-        $_SESSION = [];
-
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params['path'] ?? '/',
-                $params['domain'] ?? '',
-                (bool)($params['secure'] ?? false),
-                (bool)($params['httponly'] ?? true)
-            );
-        }
-
-        session_destroy();
-        redirectTo('/auth/login', $basePath);
-        break;
-
-    case '/auth/recuperar':
-        http_response_code(200);
-        header('Content-Type: text/html; charset=UTF-8');
-        echo '<!DOCTYPE html>';
-        echo '<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Recuperar senha</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body class="bg-light">';
-        echo '<main class="container py-5"><div class="card shadow-sm border-0"><div class="card-body p-4">';
-        echo '<h1 class="h4 mb-3">Recuperação de senha</h1>';
-        echo '<p class="mb-3">Esta funcionalidade está em construção no momento.</p>';
-        echo '<a class="btn btn-primary" href="' . htmlspecialchars(($basePath !== '' ? $basePath : '') . '/auth/login', ENT_QUOTES, 'UTF-8') . '">Voltar para login</a>';
-        echo '</div></div></main></body></html>';
-        break;
-
-    case '/laboratorio':
-        include __DIR__ . '/views/laboratorio/index.php';
-        break;
-
-    case '/equipamento':
-        include __DIR__ . '/views/equipamento/index.php';
-        break;
-
-    case '/usuario/professor':
-        include __DIR__ . '/views/usuario/professores.php';
-        break;
-
-    case '/usuario/tecnico':
-        include __DIR__ . '/views/usuario/tecnicos.php';
-        break;
-
-    case '/ocorrencia':
-        include __DIR__ . '/views/ocorrencias/list.php';
-        break;
-
-    case '/ocorrencia/criar':
-        include __DIR__ . '/views/ocorrencias/create.php';
-        break;
-
-    case '/monitor':
-    case '/monitor/historico':
-        include __DIR__ . '/views/monitor/index.php';
-        break;
-
-    case '/relatorio':
-        include __DIR__ . '/views/relatorios/index.php';
-        break;
-
-    case '/tipo-problema':
-        include __DIR__ . '/views/tipo-problema/index.php';
-        break;
-
-    default:
-        http_response_code(404);
-        header('Content-Type: text/plain; charset=UTF-8');
-        echo 'Página não encontrada';
-}
+$router->dispatch();

@@ -13,6 +13,9 @@ $emailUsuario = htmlspecialchars($_SESSION['email_usuario'] ?? '',           ENT
 $pageTitle    = htmlspecialchars($pageTitle  ?? 'Dashboard',                 ENT_QUOTES, 'UTF-8');
 $activeRoute  = $activeRoute ?? '';
 $totalAbertos = (int)($totalAbertos ?? 0);
+$flashMessage = $_SESSION['flash_message'] ?? null;
+$flashType    = $_SESSION['flash_type'] ?? 'info';
+unset($_SESSION['flash_message'], $_SESSION['flash_type']);
 
 /* Iniciais do avatar --------------------------------------------------- */
 $partesNome = explode(' ', $nomeUsuario);
@@ -305,6 +308,14 @@ $navItems = match($tipoUsuario) {
   </header>
 
   <!-- Mensagens de feedback (flash) -->
+  <?php if (!empty($flashMessage)): ?>
+    <div class="alert alert-<?= htmlspecialchars((string)$flashType, ENT_QUOTES, 'UTF-8') ?> alert-dismissible d-flex align-items-center gap-2 m-3 mb-0"
+         role="alert" aria-live="polite">
+      <i class="bi bi-info-circle-fill flex-shrink-0" aria-hidden="true"></i>
+      <div><?= htmlspecialchars((string)$flashMessage, ENT_QUOTES, 'UTF-8') ?></div>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+  <?php endif; ?>
   <?php if (!empty($success)): ?>
     <div class="alert alert-success alert-dismissible d-flex align-items-center gap-2 m-3 mb-0"
          role="alert" aria-live="polite">
@@ -328,49 +339,3 @@ $navItems = match($tipoUsuario) {
 
   <!-- Conteúdo principal (views incluem a partir daqui) -->
   <main id="main-content" class="sr-content" tabindex="-1">
-<?php
-/* sidebar_content.php é incluído tanto no desktop quanto no offcanvas mobile.
- * Cria-se inline via closure para evitar arquivo extra: */
-if (!function_exists('sr_render_sidebar_content')) {
-    function sr_render_sidebar_content(array $navItems, string $activeRoute, string $iniciais, string $nomeUsuario, string $rotuloTipo): void {
-?>
-  <div class="sr-sidebar-brand d-flex align-items-center gap-2">
-    <div class="sr-brand-logo" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></div>
-    <div>
-      <div class="sr-brand-name">Sistema Relator</div>
-      <div class="sr-brand-sub">UNIEINSTEIN</div>
-    </div>
-  </div>
-
-  <div class="sr-nav flex-grow-1 px-2 py-2" role="navigation">
-    <?php foreach ($navItems as $item): ?>
-      <?php if (($item['type'] ?? '') === 'sep'): ?>
-        <div class="sr-nav-sep"><?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?></div>
-      <?php else: ?>
-        <a href="<?= htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8') ?>"
-           <?= $activeRoute === $item['route'] ? 'class="active" aria-current="page"' : '' ?>
-           aria-label="<?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?>">
-          <i class="bi <?= htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
-          <?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?>
-          <?php if (!empty($item['badge'])): ?>
-            <span class="sr-badge" aria-label="<?= (int)$item['badge'] ?> chamados não atendidos">
-              <?= (int)$item['badge'] ?>
-            </span>
-          <?php endif; ?>
-        </a>
-      <?php endif; ?>
-    <?php endforeach; ?>
-  </div>
-
-  <div class="sr-user-bar">
-    <div class="sr-avatar" aria-hidden="true"><?= htmlspecialchars($iniciais, ENT_QUOTES, 'UTF-8') ?></div>
-    <div class="flex-grow-1 overflow-hidden">
-      <div class="sr-user-name"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') ?></div>
-      <div class="sr-user-role"><?= htmlspecialchars($rotuloTipo, ENT_QUOTES, 'UTF-8') ?></div>
-    </div>
-  </div>
-<?php
-    }
-}
-sr_render_sidebar_content($navItems, $activeRoute, $iniciais, $nomeUsuario, $rotuloTipo);
-?>
