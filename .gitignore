@@ -1,5 +1,6 @@
 # Dependencias
 /Lab_relator/vendor/
+/Documentacao/node_modules/
 # composer.lock mantido para fixar versoes instaladas em ambiente academico.
 
 # Logs e sessoes

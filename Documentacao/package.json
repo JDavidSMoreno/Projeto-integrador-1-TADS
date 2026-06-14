@@ -1,0 +1,12 @@
+{
+  "name": "lab-relator-documentacao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Geradores de documentacao do projeto Lab Relator.",
+  "scripts": {
+    "gerar:publica": "node gerar_documentacao_publica.js"
+  },
+  "dependencies": {
+    "docx": "^9.7.1"
+  }
+}

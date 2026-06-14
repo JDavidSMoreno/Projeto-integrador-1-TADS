@@ -30,14 +30,6 @@ MVC própria, MySQL e Bootstrap 5.3.
 
 Veja o arquivo completo em: `Documentacao/Como rodar localmente.pdf`
 
-Resumo rápido:
-1. Clone o repositório
-2. Instale dependências: `composer install` dentro de `Lab_relator/`
-3. Importe `Lab_relator/database/schema.sql` no MySQL
-4. Configure `Lab_relator/config/database.php` com suas credenciais
-5. Aponte o Apache para `Lab_relator/public/` como DocumentRoot
-6. Acesse `http://labrelatror.local`
-
 ## Tecnologias
 
 PHP 8.2+ · MySQL 8.x · Bootstrap 5.3 · PHPMailer 6.x · Composer 2.x
