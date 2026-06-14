@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: app/Controllers/AuthController.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 namespace App\Controllers;
 
 use App\Helpers\Csrf;
@@ -8,6 +12,7 @@ use App\Helpers\SessionHelper;
 use App\Models\LoginAttemptModel;
 use App\Models\PasswordResetModel;
 use App\Models\UsuarioModel;
+use App\Services\MailService;
 use Throwable;
 
 final class AuthController extends BaseController
@@ -73,7 +78,10 @@ final class AuthController extends BaseController
 
     public function logout(): void
     {
+        // ── INÍCIO CORREÇÃO QA ──
+        session_unset();
         SessionHelper::logout();
+        // ── FIM CORREÇÃO QA ──
         $this->redirect('/auth/login');
     }
 
@@ -85,7 +93,6 @@ final class AuthController extends BaseController
     public function processRecuperar(): void
     {
         $email = mb_strtolower(trim((string)($_POST['email'] ?? '')), 'UTF-8');
-        $resetLink = null;
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->renderRecovery('Informe um e-mail valido.', null, $email);
@@ -102,15 +109,23 @@ final class AuthController extends BaseController
                 );
                 $resetLink = $this->absoluteUrl('/auth/resetar/' . $token);
 
-                // Fase 2 nao possui MailService; o link fica visivel para teste local.
-                error_log('[AuthController] Password reset link for ' . $email . ': ' . $resetLink);
+                // ── INÍCIO CORREÇÃO QA ──
+                $enviado = MailService::enviarResetSenha(
+                    (string)$user['email'],
+                    (string)$user['nome'],
+                    $resetLink
+                );
+
+                if (!$enviado) {
+                    $this->registrarResetDev((string)$user['email'], $resetLink);
+                }
+                // ── FIM CORREÇÃO QA ──
             }
 
             $this->renderRecovery(
                 null,
-                'Se o e-mail estiver cadastrado, um link de recuperacao sera gerado.',
-                $email,
-                $resetLink
+                'Se o e-mail existir em nossa base, voce recebera as instrucoes em breve.',
+                $email
             );
         } catch (Throwable $exception) {
             error_log('[AuthController] Recovery error: ' . $exception->getMessage());
@@ -175,14 +190,12 @@ final class AuthController extends BaseController
     private function renderRecovery(
         ?string $error = null,
         ?string $success = null,
-        string $email = '',
-        ?string $resetLink = null
+        string $email = ''
     ): void {
         $this->render('auth/recuperar', [
             'error' => $error,
             'success' => $success,
             'email' => $email,
-            'resetLink' => $resetLink,
             'flash' => SessionHelper::pullFlash(),
         ], false);
     }
@@ -242,5 +255,22 @@ final class AuthController extends BaseController
         $basePath = defined('APP_BASE_PATH') ? (string)APP_BASE_PATH : '';
 
         return $scheme . '://' . $host . rtrim($basePath, '/') . '/' . ltrim($path, '/');
+    }
+
+    private function registrarResetDev(string $email, string $resetLink): void
+    {
+        // ── INÍCIO CORREÇÃO QA ──
+        $root = defined('APP_ROOT') ? (string)APP_ROOT : dirname(__DIR__, 2);
+        $logDir = $root . '/storage/logs';
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+
+        file_put_contents(
+            $logDir . '/reset.log',
+            date('Y-m-d H:i:s') . ' | ' . $email . ' | ' . $resetLink . PHP_EOL,
+            FILE_APPEND
+        );
+        // ── FIM CORREÇÃO QA ──
     }
 }

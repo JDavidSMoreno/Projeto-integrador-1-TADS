@@ -1,9 +1,14 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: app/Models/UsuarioModel.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 namespace App\Models;
 
 use InvalidArgumentException;
+use PDO;
 
 final class UsuarioModel extends BaseModel
 {
@@ -68,37 +73,54 @@ final class UsuarioModel extends BaseModel
         $porPagina = max(1, min(100, $porPagina));
         $offset = ($pagina - 1) * $porPagina;
 
-        $where = ['perfil = :perfil'];
+        $where = ['u.perfil = :perfil'];
         $params = ['perfil' => $perfil];
 
         if ($status === 'ativos') {
-            $where[] = 'ativo = 1';
+            $where[] = 'u.ativo = 1';
         } elseif ($status === 'inativos') {
-            $where[] = 'ativo = 0';
+            $where[] = 'u.ativo = 0';
         }
 
         if ($busca !== '') {
-            $where[] = '(nome LIKE :busca OR email LIKE :busca)';
+            $where[] = '(u.nome LIKE :busca OR u.email LIKE :busca)';
             $params['busca'] = '%' . $busca . '%';
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
         $total = (int)$this
-            ->query("SELECT COUNT(*) FROM usuarios {$whereSql}", $params)
+            ->query("SELECT COUNT(*) FROM usuarios u {$whereSql}", $params)
             ->fetchColumn();
 
-        $items = $this
-            ->query(
-                "SELECT id, nome, email, perfil, ativo, created_at,
-                        0 AS total_ocorrencias,
-                        0 AS total_abertos
-                 FROM usuarios
-                 {$whereSql}
-                 ORDER BY nome ASC
-                 LIMIT {$porPagina} OFFSET {$offset}",
-                $params
-            )
-            ->fetchAll();
+        // ── INÍCIO CORREÇÃO QA ──
+        $contagens = match ($perfil) {
+            'professor' => "(SELECT COUNT(*) FROM ocorrencia o WHERE o.id_professor = u.id) AS total_ocorrencias,
+                            (SELECT COUNT(*) FROM ocorrencia o
+                             WHERE o.id_professor = u.id
+                               AND o.status NOT IN ('Encerrada')) AS total_abertos",
+            'tecnico' => "(SELECT COUNT(*) FROM ocorrencia o WHERE o.id_tecnico = u.id) AS total_ocorrencias,
+                          (SELECT COUNT(*) FROM ocorrencia o
+                           WHERE o.id_tecnico = u.id
+                             AND o.status = 'Em Atendimento') AS total_abertos",
+            default => '0 AS total_ocorrencias, 0 AS total_abertos',
+        };
+
+        $sql = "SELECT u.id, u.nome, u.email, u.perfil, u.ativo, u.created_at,
+                       {$contagens}
+                FROM usuarios u
+                {$whereSql}
+                ORDER BY u.nome ASC
+                LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value);
+        }
+        $stmt->bindValue(':limit', $porPagina, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll();
+        // ── FIM CORREÇÃO QA ──
 
         return [
             'items' => $items,
@@ -175,6 +197,25 @@ final class UsuarioModel extends BaseModel
                 ['ativo' => $newStatus, 'id' => $id, 'perfil' => $perfil]
             )
             ->rowCount() > 0;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function listActiveByPerfil(string $perfil): array
+    {
+        // ── INÍCIO CORREÇÃO QA ──
+        $this->assertPerfil($perfil);
+
+        return $this
+            ->query(
+                'SELECT id, nome, email, perfil
+                 FROM usuarios
+                 WHERE perfil = :perfil
+                   AND ativo = 1
+                 ORDER BY nome ASC',
+                ['perfil' => $perfil]
+            )
+            ->fetchAll();
+        // ── FIM CORREÇÃO QA ──
     }
 
     private function assertPerfil(string $perfil): void

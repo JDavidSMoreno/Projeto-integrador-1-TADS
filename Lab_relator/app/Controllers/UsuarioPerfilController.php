@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: app/Controllers/UsuarioPerfilController.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — ajuste cadastros professor/tecnico
+
 namespace App\Controllers;
 
 use App\Helpers\SessionHelper;
@@ -28,17 +32,20 @@ abstract class UsuarioPerfilController extends BaseController
 
     public function index(): void
     {
+        $this->requireRole('gestor');
         $this->renderIndex();
     }
 
     public function novo(): void
     {
-        $this->renderIndex();
+        $this->requireRole('gestor');
+        $this->renderIndex(null);
     }
 
     /** @param array<string, string> $params */
     public function editar(array $params): void
     {
+        $this->requireRole('gestor');
         $id = (int)($params['id'] ?? 0);
         $usuario = $this->findOrAbort($id);
 
@@ -47,6 +54,7 @@ abstract class UsuarioPerfilController extends BaseController
 
     public function salvar(): void
     {
+        $this->requireRole('gestor');
         $input = $this->input();
         $errors = Validator::validar($input, $this->rules(), $this->labels());
 
@@ -68,6 +76,7 @@ abstract class UsuarioPerfilController extends BaseController
     /** @param array<string, string> $params */
     public function atualizar(array $params = []): void
     {
+        $this->requireRole('gestor');
         $id = (int)($params['id'] ?? $_POST['id'] ?? 0);
         $existing = $this->findOrAbort($id);
         $input = ['id' => $id] + $this->input();
@@ -91,6 +100,7 @@ abstract class UsuarioPerfilController extends BaseController
     /** @param array<string, string> $params */
     public function toggle(array $params = []): void
     {
+        $this->requireRole('gestor');
         $id = (int)($params['id'] ?? $_POST['id'] ?? 0);
         $usuario = $this->findOrAbort($id);
 
@@ -148,7 +158,7 @@ abstract class UsuarioPerfilController extends BaseController
     {
         return [
             'nome' => trim((string)($_POST['nome'] ?? '')),
-            'email' => mb_strtolower(trim((string)($_POST['email'] ?? '')), 'UTF-8'),
+            'email' => $this->normalizarEmail((string)($_POST['email'] ?? '')),
             'senha' => (string)($_POST['senha'] ?? ''),
             'ativo' => in_array((string)($_POST['ativo'] ?? '1'), ['0', '1'], true) ? (string)$_POST['ativo'] : '1',
         ];
@@ -204,5 +214,14 @@ abstract class UsuarioPerfilController extends BaseController
         $status = (string)($_GET['status'] ?? 'ativos');
 
         return in_array($status, ['ativos', 'inativos', 'todos'], true) ? $status : 'ativos';
+    }
+
+    private function normalizarEmail(string $email): string
+    {
+        $email = trim($email);
+
+        return function_exists('mb_strtolower')
+            ? mb_strtolower($email, 'UTF-8')
+            : strtolower($email);
     }
 }

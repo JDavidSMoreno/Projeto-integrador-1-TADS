@@ -1,12 +1,18 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: index.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\EquipamentoController;
 use App\Controllers\LaboratorioController;
-use App\Controllers\PageController;
+use App\Controllers\MonitorController;
+use App\Controllers\OcorrenciaController;
 use App\Controllers\ProfessorController;
+use App\Controllers\RelatorioController;
 use App\Controllers\TecnicoController;
 use App\Controllers\TipoProblemaController;
 use App\Core\Router;
@@ -22,6 +28,14 @@ if ($sessionPath === '' || !is_dir($sessionPath) || !is_writable($sessionPath)) 
     session_save_path($fallbackSessionPath);
 }
 
+// ── INÍCIO CORREÇÃO QA ──
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.use_strict_mode', '1');
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    ini_set('session.cookie_secure', '1');
+}
+// ── FIM CORREÇÃO QA ──
 session_start();
 
 require __DIR__ . '/vendor/autoload.php';
@@ -55,7 +69,11 @@ $router->get('/login', [AuthController::class, 'login']);
 $router->post('/login', [AuthController::class, 'processLogin'])->middleware('csrf');
 $router->get('/auth/login', [AuthController::class, 'login']);
 $router->post('/auth/login', [AuthController::class, 'processLogin'])->middleware('csrf');
-$router->get('/auth/logout', [AuthController::class, 'logout'])->middleware('auth');
+// ── INÍCIO CORREÇÃO QA ──
+$router->post('/auth/logout', [AuthController::class, 'logout'])
+    ->middleware('auth')
+    ->middleware('csrf');
+// ── FIM CORREÇÃO QA ──
 $router->get('/auth/recuperar', [AuthController::class, 'recuperar']);
 $router->post('/auth/recuperar', [AuthController::class, 'processRecuperar'])->middleware('csrf');
 $router->get('/auth/resetar/{token}', [AuthController::class, 'resetar']);
@@ -154,6 +172,29 @@ $router->post('/usuario/professor/{id}/toggle', [ProfessorController::class, 'to
     ->middleware('role:gestor')
     ->middleware('csrf');
 
+// Rotas alias para acesso direto ao cadastro de professores.
+$router->get('/professor', [ProfessorController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/professor/novo', [ProfessorController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/professor/{id}/editar', [ProfessorController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/professor/salvar', [ProfessorController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/professor/{id}/atualizar', [ProfessorController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/professor/{id}/toggle', [ProfessorController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+
 $router->get('/usuario/tecnico', [TecnicoController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
@@ -175,6 +216,29 @@ $router->post('/usuario/tecnico/{id}/atualizar', [TecnicoController::class, 'atu
     ->middleware('role:gestor')
     ->middleware('csrf');
 $router->post('/usuario/tecnico/{id}/toggle', [TecnicoController::class, 'toggle'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+
+// Rotas alias para acesso direto ao cadastro de tecnicos.
+$router->get('/tecnico', [TecnicoController::class, 'index'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/tecnico/novo', [TecnicoController::class, 'novo'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/tecnico/{id}/editar', [TecnicoController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->post('/tecnico/salvar', [TecnicoController::class, 'salvar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/tecnico/{id}/atualizar', [TecnicoController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:gestor')
+    ->middleware('csrf');
+$router->post('/tecnico/{id}/toggle', [TecnicoController::class, 'toggle'])
     ->middleware('auth')
     ->middleware('role:gestor')
     ->middleware('csrf');
@@ -201,24 +265,65 @@ $router->post('/tipo-problema/{id}/toggle', [TipoProblemaController::class, 'tog
     ->middleware('role:gestor')
     ->middleware('csrf');
 
-$router->get('/ocorrencia', [PageController::class, 'ocorrencias'])
+$router->get('/ocorrencia', [OcorrenciaController::class, 'index'])
     ->middleware('auth')
-    ->middleware('role:professor,gestor');
+    ->middleware('role:professor,tecnico,gestor');
 
-$router->get('/ocorrencia/criar', [PageController::class, 'criarOcorrencia'])
+$router->get('/ocorrencia/criar', [OcorrenciaController::class, 'criar'])
     ->middleware('auth')
     ->middleware('role:professor');
+$router->post('/ocorrencia/registrar', [OcorrenciaController::class, 'registrar'])
+    ->middleware('auth')
+    ->middleware('role:professor')
+    ->middleware('csrf');
+$router->get('/ocorrencia/ver/{id}', [OcorrenciaController::class, 'ver'])
+    ->middleware('auth')
+    ->middleware('role:professor,tecnico,gestor');
+$router->get('/ocorrencia/editar/{id}', [OcorrenciaController::class, 'editar'])
+    ->middleware('auth')
+    ->middleware('role:professor');
+$router->post('/ocorrencia/atualizar/{id}', [OcorrenciaController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:professor')
+    ->middleware('csrf');
+$router->post('/ocorrencia/atualizar', [OcorrenciaController::class, 'atualizar'])
+    ->middleware('auth')
+    ->middleware('role:professor')
+    ->middleware('csrf');
+$router->post('/ocorrencia/cancelar/{id}', [OcorrenciaController::class, 'cancelar'])
+    ->middleware('auth')
+    ->middleware('role:professor')
+    ->middleware('csrf');
+$router->post('/ocorrencia/cancelar', [OcorrenciaController::class, 'cancelar'])
+    ->middleware('auth')
+    ->middleware('role:professor')
+    ->middleware('csrf');
 
-$router->get('/monitor', [PageController::class, 'monitor'])
+$router->get('/monitor', [MonitorController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:tecnico,gestor');
 
-$router->get('/monitor/historico', [PageController::class, 'monitor'])
+$router->get('/monitor/historico', [MonitorController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:tecnico,gestor');
+$router->get('/monitor/historico/{id}', [MonitorController::class, 'historico'])
+    ->middleware('auth')
+    ->middleware('role:tecnico,gestor');
+$router->post('/monitor/atualizar-status', [MonitorController::class, 'atualizarStatus'])
+    ->middleware('auth')
+    ->middleware('role:tecnico,gestor')
+    ->middleware('csrf');
 
-$router->get('/relatorio', [PageController::class, 'relatorios'])
+// ── INÍCIO CORREÇÃO QA ──
+$router->get('/relatorio', [RelatorioController::class, 'index'])
     ->middleware('auth')
     ->middleware('role:gestor');
+$router->get('/relatorio/exportar-csv', [RelatorioController::class, 'exportarCsv'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+$router->get('/relatorio/exportar-pdf', [RelatorioController::class, 'exportarPdf'])
+    ->middleware('auth')
+    ->middleware('role:gestor');
+// ── FIM CORREÇÃO QA ──
 
 $router->dispatch();

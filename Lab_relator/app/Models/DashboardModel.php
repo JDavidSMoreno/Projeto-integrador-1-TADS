@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: app/Models/DashboardModel.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 namespace App\Models;
 
 final class DashboardModel extends BaseModel
@@ -13,6 +17,9 @@ final class DashboardModel extends BaseModel
         $empty = [
             'total' => 0,
             'nao_atendida' => 0,
+            // ── INÍCIO CORREÇÃO QA ──
+            'em_edicao' => 0,
+            // ── FIM CORREÇÃO QA ──
             'em_atendimento' => 0,
             'encerrada' => 0,
         ];
@@ -37,6 +44,7 @@ final class DashboardModel extends BaseModel
                 "SELECT
                     COUNT(*) AS total,
                     SUM(status = 'Nao Atendida') AS nao_atendida,
+                    SUM(status = 'Em Edicao') AS em_edicao,
                     SUM(status = 'Em Atendimento') AS em_atendimento,
                     SUM(status = 'Encerrada') AS encerrada
                  FROM ocorrencia
@@ -52,6 +60,9 @@ final class DashboardModel extends BaseModel
         return [
             'total' => (int)$row['total'],
             'nao_atendida' => (int)$row['nao_atendida'],
+            // ── INÍCIO CORREÇÃO QA ──
+            'em_edicao' => (int)$row['em_edicao'],
+            // ── FIM CORREÇÃO QA ──
             'em_atendimento' => (int)$row['em_atendimento'],
             'encerrada' => (int)$row['encerrada'],
         ];

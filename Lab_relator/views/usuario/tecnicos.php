@@ -150,7 +150,12 @@ $totalPaginas = (int)ceil(((int)$pagination['total']) / max(1, (int)$pagination[
                     </div>
                   </td>
                   <td><?= $h($tec['email']) ?></td>
-                  <td><span class="badge bg-light text-dark border"><?= (int)($tec['total_abertos'] ?? 0) ?></span></td>
+                  <td>
+                    <span class="badge bg-light text-dark border"
+                          title="<?= (int)($tec['total_abertos'] ?? 0) ?> chamado(s) em atendimento">
+                      <?= (int)($tec['total_ocorrencias'] ?? 0) ?>
+                    </span>
+                  </td>
                   <td>
                     <span class="badge <?= (int)$tec['ativo'] === 1 ? 'badge-enc' : 'badge-na' ?>">
                       <?= (int)$tec['ativo'] === 1 ? 'Ativo' : 'Inativo' ?>

@@ -1,8 +1,11 @@
 <?php
+// Arquivo: views/auth/recuperar.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 $error = isset($error) ? htmlspecialchars($error, ENT_QUOTES, 'UTF-8') : null;
 $success = isset($success) ? htmlspecialchars($success, ENT_QUOTES, 'UTF-8') : null;
 $email = htmlspecialchars($email ?? '', ENT_QUOTES, 'UTF-8');
-$resetLink = isset($resetLink) ? htmlspecialchars($resetLink, ENT_QUOTES, 'UTF-8') : null;
 $flash = $flash ?? null;
 ?>
 <!DOCTYPE html>
@@ -35,12 +38,9 @@ $flash = $flash ?? null;
           <div class="alert alert-success"><?= $success ?></div>
         <?php endif; ?>
 
-        <?php if ($resetLink !== null): ?>
-          <div class="alert alert-info">
-            <div class="fw-semibold mb-1">Link de teste local:</div>
-            <a href="<?= $resetLink ?>"><?= $resetLink ?></a>
-          </div>
-        <?php endif; ?>
+        <!-- ── INÍCIO CORREÇÃO QA ── -->
+        <!-- Link de redefinicao nunca e exibido em output HTTP. -->
+        <!-- ── FIM CORREÇÃO QA ── -->
 
         <form action="/auth/recuperar" method="POST" novalidate>
           <input type="hidden" name="csrf_token"

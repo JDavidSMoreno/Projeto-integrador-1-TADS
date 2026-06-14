@@ -1,4 +1,8 @@
 <?php
+// Arquivo: views/layouts/header.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 /**
  * views/layouts/header.php
  * Layout principal: <head>, sidebar condicional por perfil, topbar.
@@ -300,10 +304,18 @@ $navItems = match($tipoUsuario) {
           <div style="font-size:10px;color:#78909c"><?= $rotuloTipo ?></div>
         </div>
       </div>
-      <a href="/auth/logout" class="sr-topbar-btn"
-         aria-label="Sair do sistema" title="Sair">
-        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-      </a>
+      <!-- ── INÍCIO CORREÇÃO QA ── -->
+      <form method="POST"
+            action="<?= htmlspecialchars((defined('APP_BASE_PATH') ? (string)APP_BASE_PATH : '') . '/auth/logout', ENT_QUOTES, 'UTF-8') ?>"
+            style="display:inline">
+        <input type="hidden" name="_csrf_token"
+               value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+        <button type="submit" class="sr-topbar-btn"
+                aria-label="Sair do sistema" title="Sair">
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+        </button>
+      </form>
+      <!-- ── FIM CORREÇÃO QA ── -->
     </div>
   </header>
 

@@ -1,4 +1,8 @@
 <?php
+// Arquivo: views/relatorios/index.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 /**
  * views/relatorios/index.php
  * Relatórios gerenciais (RF: seção 3.3 – acesso Gestor).
@@ -17,10 +21,13 @@ $activeRoute = 'relatorio';
 include __DIR__ . '/../layouts/header.php';
 
 $ocorrencias  = $ocorrencias  ?? [];
-$stats        = $stats        ?? ['total' => 0,'encerrada' => 0,'nao_atendida' => 0,'em_atendimento' => 0,'tempo_medio_dias' => 0.0];
+$stats        = $stats        ?? ['total' => 0,'encerrada' => 0,'nao_atendida' => 0,'em_edicao' => 0,'em_atendimento' => 0,'tempo_medio_dias' => 0.0];
 $por_tipo     = $por_tipo     ?? [];
 $laboratorios = $laboratorios ?? [];
 $tiposProblema= $tiposProblema?? [];
+// ── INÍCIO CORREÇÃO QA ──
+$tecnicos      = $tecnicos     ?? [];
+// ── FIM CORREÇÃO QA ──
 $filtros      = $filtros      ?? [];
 $pagination   = $pagination   ?? ['pagina' => 1,'total' => 0,'porPagina' => 15];
 
@@ -104,10 +111,29 @@ function relStatusBadge(string $s): string {
                   style="border-radius:8px">
             <option value="">Todos</option>
             <option value="Nao Atendida"   <?= ($filtros['status'] ?? '') === 'Nao Atendida'   ? 'selected' : '' ?>>Não Atendida</option>
+            <!-- ── INÍCIO CORREÇÃO QA ── -->
+            <option value="Em Edicao"      <?= ($filtros['status'] ?? '') === 'Em Edicao'      ? 'selected' : '' ?>>Em Edição</option>
+            <!-- ── FIM CORREÇÃO QA ── -->
             <option value="Em Atendimento" <?= ($filtros['status'] ?? '') === 'Em Atendimento' ? 'selected' : '' ?>>Em Atendimento</option>
             <option value="Encerrada"      <?= ($filtros['status'] ?? '') === 'Encerrada'      ? 'selected' : '' ?>>Encerrada</option>
           </select>
         </div>
+
+        <!-- ── INÍCIO CORREÇÃO QA ── -->
+        <div class="col-6 col-md-2">
+          <label for="r-tecnico" class="form-label" style="font-size:12px">Técnico</label>
+          <select class="form-select form-select-sm" id="r-tecnico" name="id_tecnico"
+                  style="border-radius:8px">
+            <option value="">Todos</option>
+            <?php foreach ($tecnicos as $tec): ?>
+              <option value="<?= (int)$tec['id'] ?>"
+                      <?= ($filtros['id_tecnico'] ?? 0) == $tec['id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($tec['nome'], ENT_QUOTES, 'UTF-8') ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <!-- ── FIM CORREÇÃO QA ── -->
 
         <div class="col-6 col-md-2">
           <div class="d-flex gap-2">
@@ -241,6 +267,9 @@ function relStatusBadge(string $s): string {
         $enc   = (int)$stats['encerrada'];
         $ea    = (int)$stats['em_atendimento'];
         $na    = (int)$stats['nao_atendida'];
+        // ── INÍCIO CORREÇÃO QA ──
+        $ee    = (int)$stats['em_edicao'];
+        // ── FIM CORREÇÃO QA ──
         $r = 15.91549430918954; // raio donut
         function arcDash(int $val, int $total, float $r): string {
             $circ = 2 * M_PI * $r;
@@ -250,6 +279,9 @@ function relStatusBadge(string $s): string {
         $offEnc = 25;
         $offEa  = $offEnc - round(100 * $enc  / $total);
         $offNa  = $offEa  - round(100 * $ea   / $total);
+        // ── INÍCIO CORREÇÃO QA ──
+        $offEe  = $offNa  - round(100 * $na   / $total);
+        // ── FIM CORREÇÃO QA ──
         ?>
         <svg width="120" height="120" viewBox="0 0 42 42"
              role="img" aria-label="Gráfico de pizza: distribuição por status">
@@ -267,6 +299,12 @@ function relStatusBadge(string $s): string {
                   stroke="#dc3545" stroke-width="6"
                   stroke-dasharray="<?= arcDash($na, $total, $r) ?>"
                   stroke-dashoffset="<?= $offNa ?>"></circle>
+          <!-- ── INÍCIO CORREÇÃO QA ── -->
+          <circle cx="21" cy="21" r="<?= $r ?>" fill="transparent"
+                  stroke="#f57f17" stroke-width="6"
+                  stroke-dasharray="<?= arcDash($ee, $total, $r) ?>"
+                  stroke-dashoffset="<?= $offEe ?>"></circle>
+          <!-- ── FIM CORREÇÃO QA ── -->
           <text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle"
                 font-size="5" fill="#1a2a3a" font-family="Poppins,sans-serif" font-weight="700">
             <?= number_format($total) ?>
@@ -287,6 +325,14 @@ function relStatusBadge(string $s): string {
             <dt class="fw-normal">Em Atendimento</dt>
             <dd class="ms-auto mb-0 fw-bold"><?= number_format($ea) ?></dd>
           </div>
+          <!-- ── INÍCIO CORREÇÃO QA ── -->
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="width:12px;height:12px;background:#f57f17;border-radius:3px;display:inline-block"
+                  aria-hidden="true"></span>
+            <dt class="fw-normal">Em Edição</dt>
+            <dd class="ms-auto mb-0 fw-bold"><?= number_format($ee) ?></dd>
+          </div>
+          <!-- ── FIM CORREÇÃO QA ── -->
           <div class="d-flex align-items-center gap-2">
             <span style="width:12px;height:12px;background:#dc3545;border-radius:3px;display:inline-block"
                   aria-hidden="true"></span>
@@ -389,6 +435,9 @@ function relStatusBadge(string $s): string {
       'data_fim'         => $filtros['data_fim']         ?? '',
       'id_laboratorio'   => $filtros['id_laboratorio']   ?? '',
       'id_tipo_problema' => $filtros['id_tipo_problema'] ?? '',
+      // ── INÍCIO CORREÇÃO QA ──
+      'id_tecnico'       => $filtros['id_tecnico']       ?? '',
+      // ── FIM CORREÇÃO QA ──
       'status'           => $filtros['status']           ?? '',
   ]));
   ?>

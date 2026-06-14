@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: app/Controllers/TecnicoController.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — ajuste cadastros professor/tecnico
+
 namespace App\Controllers;
 
 final class TecnicoController extends UsuarioPerfilController

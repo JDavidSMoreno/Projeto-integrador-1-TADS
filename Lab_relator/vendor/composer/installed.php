@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'unieinstein/lab-relator',
-        'pretty_version' => '1.0.0+no-version-set',
-        'version' => '1.0.0.0',
-        'reference' => null,
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '2f740ad135417626f45e013424b7ea7c3a79248c',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -20,9 +20,9 @@
             'dev_requirement' => false,
         ),
         'unieinstein/lab-relator' => array(
-            'pretty_version' => '1.0.0+no-version-set',
-            'version' => '1.0.0.0',
-            'reference' => null,
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '2f740ad135417626f45e013424b7ea7c3a79248c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

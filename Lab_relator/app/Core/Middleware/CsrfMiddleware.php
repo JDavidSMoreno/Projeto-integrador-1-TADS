@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+// Arquivo: app/Core/Middleware/CsrfMiddleware.php
+// Lab Relator — Projeto Integrador TADS UniEinstein 2026
+// Modificado por: Codex — correção QA
+
 namespace App\Core\Middleware;
 
 use App\Helpers\Csrf;
@@ -15,10 +19,13 @@ final class CsrfMiddleware
             return;
         }
 
-        $token = $_POST['csrf_token']
+        // ── INÍCIO CORREÇÃO QA ──
+        $token = $_POST['_csrf_token']
+            ?? $_POST['csrf_token']
             ?? $_POST['_token']
             ?? $_SERVER['HTTP_X_CSRF_TOKEN']
             ?? null;
+        // ── FIM CORREÇÃO QA ──
 
         if (Csrf::validate(is_string($token) ? $token : null)) {
             return;
