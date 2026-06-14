@@ -16,6 +16,7 @@ Thumbs.db
 
 # Arquivos de ambiente e credenciais
 /Lab_relator/config/mail.php
+/Lab_relator/config/database.local.php
 .env
 
 # Arquivos temporarios

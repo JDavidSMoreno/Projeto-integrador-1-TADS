@@ -106,7 +106,7 @@ final class TipoProblemaController extends BaseController
             $pagination = (new TipoProblemaModel())->paginate($busca, $status, $pagina, 20);
         } catch (Throwable $exception) {
             error_log('[TipoProblemaController] Index error: ' . $exception->getMessage());
-            $warning = 'Nao foi possivel carregar tipos de problema. Verifique o banco e o schema da Fase 3.';
+            $warning = 'Nao foi possivel carregar tipos de problema. Verifique o banco e o arquivo database/schema.sql.';
         }
 
         $this->render('tipo-problema/index', [

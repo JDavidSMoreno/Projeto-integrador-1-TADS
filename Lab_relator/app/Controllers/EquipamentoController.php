@@ -126,7 +126,7 @@ final class EquipamentoController extends BaseController
             $pagination = (new EquipamentoModel())->paginate($filtroLab > 0 ? $filtroLab : null, $busca, $status, $pagina, 20);
         } catch (Throwable $exception) {
             error_log('[EquipamentoController] Index error: ' . $exception->getMessage());
-            $warning = 'Nao foi possivel carregar equipamentos. Verifique o banco e o schema da Fase 3.';
+            $warning = 'Nao foi possivel carregar equipamentos. Verifique o banco e o arquivo database/schema.sql.';
         }
 
         $this->render('equipamento/index', [

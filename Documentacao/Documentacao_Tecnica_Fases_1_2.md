@@ -1,585 +1,361 @@
-# Sistema Relator de Problemas em Laboratorio
+# Lab Relator - Documentacao Tecnica Atualizada
 
-Documentacao tecnica viva do projeto apos as Fases 1 e 2.
+Documento tecnico vivo do Sistema Relator de Problemas em Laboratorio.
 
-- PHP: 8.2
-- Banco: MySQL 8.x ou MariaDB compativel
-- Arquitetura: MVC
-- Servidor local usado no desenvolvimento: `http://127.0.0.1:8010`
-- Autoload: Composer PSR-4, namespace `App\` apontando para `Lab_relator/app/`
+Ultima revisao: 2026-06-14.
 
-Este documento explica o que cada parte faz e deve ser atualizado sempre que uma nova fase for implementada.
+## 1. Escopo Atual
 
-## 1. Visao Geral
+O projeto deixou de estar limitado as fases 1 e 2. O codigo atual ja possui:
 
-O Sistema Relator de Problemas em Laboratorio e uma aplicacao web interna para registrar, acompanhar e gerenciar problemas tecnicos em laboratorios de uma instituicao de ensino.
+- autenticacao com controle de sessao;
+- rate limit de login;
+- recuperacao de senha;
+- cadastros administrativos;
+- registro e acompanhamento de ocorrencias;
+- monitor de chamados;
+- historico de status;
+- relatorios com exportacao CSV e HTML de impressao;
+- servico de e-mail com PHPMailer.
 
-Perfis do sistema:
+O nome deste arquivo foi mantido por historico do repositorio, mas o conteudo agora descreve o estado atual do sistema.
 
-- Professor: registra ocorrencias e acompanha os proprios chamados.
-- Tecnico: acompanha chamados, assume atendimentos e encerra ocorrencias.
-- Gestor: administra cadastros, acompanha todos os chamados e consulta relatorios.
+## 2. Stack
 
-## 2. Arquitetura MVC
+- PHP 8.2+ no ambiente local atual.
+- Composer com autoload PSR-4.
+- MySQL 8.x ou MariaDB compativel.
+- PDO com prepared statements.
+- Bootstrap 5.3.
+- PHPMailer 6.x.
 
-O projeto foi organizado no padrao MVC:
+O projeto nao esta pronto para PostgreSQL. O schema e algumas consultas usam recursos especificos de MySQL, como `AUTO_INCREMENT`, `ENUM`, `FIELD()`, `TIMESTAMPDIFF()` e `ON UPDATE CURRENT_TIMESTAMP`.
 
-- Model: arquivos em `app/Models/`, responsaveis por acesso a dados e SQL via PDO.
-- View: arquivos em `views/`, responsaveis apenas por exibir HTML com dados recebidos.
-- Controller: arquivos em `app/Controllers/`, responsaveis por orquestrar requisicoes, models e views.
+## 3. Arquitetura
 
-Fluxo de uma requisicao:
+Padrao MVC proprio:
 
-1. O navegador acessa uma URL.
-2. O servidor envia a requisicao para `index.php`.
-3. `index.php` inicia sessao, define timezone, carrega o autoload, registra rotas e chama o roteador.
-4. `Router` encontra a rota compativel com URL e metodo HTTP.
-5. Middlewares como `auth`, `role:*` e `csrf` rodam antes do controller.
-6. O controller chama models quando precisa de dados.
-7. O controller chama `render()`, `json()` ou `redirect()`.
-8. A view gera HTML para o navegador.
+- `Lab_relator/index.php`: front controller, bootstrap e registro de rotas.
+- `Lab_relator/app/Core`: roteador, banco e middlewares.
+- `Lab_relator/app/Controllers`: controllers HTTP.
+- `Lab_relator/app/Models`: acesso a dados com PDO.
+- `Lab_relator/app/Views` nao existe; as views ficam em `Lab_relator/views`.
+- `Lab_relator/app/Helpers`: utilitarios de sessao, CSRF e validacao.
+- `Lab_relator/app/Services`: servicos externos, como e-mail.
 
-## 3. Mapa de Arquivos
+Fluxo padrao:
 
-### `Lab_relator/index.php`
+1. Browser chama uma URL.
+2. `index.php` inicia sessao, configura ambiente, carrega Composer e registra rotas.
+3. `Router` identifica metodo e caminho.
+4. Middlewares `auth`, `role:*` e `csrf` executam quando configurados.
+5. Controller valida permissao, le entrada, chama models e renderiza view, JSON ou redirect.
+6. Views escapam dados com `htmlspecialchars`.
 
-Front Controller da aplicacao.
+## 4. Configuracao
 
-Responsabilidades:
+### Banco
 
-- configura fallback local para sessoes em `storage/sessions`;
-- inicia `session_start()`;
-- carrega `vendor/autoload.php`;
-- define timezone `America/Sao_Paulo`;
-- calcula `APP_BASE_PATH` para funcionar em subpasta;
-- garante existencia do token CSRF;
-- registra rotas GET e POST;
-- aciona `$router->dispatch()`.
+Arquivo:
 
-Regra: nao deve conter regra de negocio. O arquivo deve permanecer limitado a bootstrap e roteamento.
+```text
+Lab_relator/config/database.php
+```
 
-### `Lab_relator/config/database.php`
-
-Arquivo de configuracao do banco.
-
-Ele retorna um array com:
-
-- driver;
-- host;
-- porta;
-- database;
-- usuario;
-- senha;
-- charset;
-- opcoes PDO.
-
-As credenciais podem vir de variaveis de ambiente:
+Aceita variaveis:
 
 - `DB_HOST`
 - `DB_PORT`
-- `DB_DATABASE`
-- `DB_USERNAME`
-- `DB_PASSWORD`
+- `DB_NAME` ou `DB_DATABASE`
+- `DB_USER` ou `DB_USERNAME`
+- `DB_PASS` ou `DB_PASSWORD`
 - `DB_CHARSET`
 
-Observacao: no ambiente atual, o MySQL retornou `Access denied for user 'root'@'localhost' (using password: NO)`. Para login real funcionar, ajuste este arquivo ou configure as variaveis de ambiente e importe `database/schema_fase2.sql`.
+Tambem aceita configuracao local ignorada pelo Git:
 
-## 4. Core
+```text
+Lab_relator/config/database.local.php
+```
 
-### `app/Core/Router.php`
+Exemplo:
 
-Roteador dinamico do sistema.
+```php
+<?php
+return [
+    'host' => '127.0.0.1',
+    'port' => '3306',
+    'database' => 'lab_relator',
+    'username' => 'root',
+    'password' => 'sua_senha_local',
+    'charset' => 'utf8mb4',
+];
+```
 
-Faz:
+Teste:
 
-- cadastra rotas por metodo HTTP (`get`, `post`, `put`, `delete`);
-- transforma rotas com parametros, como `/auth/resetar/{token}`, em regex;
-- extrai parametros dinamicos e envia ao controller;
-- executa middlewares encadeados com `->middleware(...)`;
-- suporta override de metodo via `_method`;
-- exibe paginas de erro com `abort(403)`, `abort(404)` ou `abort(500)`.
+```powershell
+php Lab_relator/config/database.php
+```
 
-Middlewares reconhecidos atualmente:
+### E-mail
 
-- `auth`
-- `role:gestor`
-- `role:professor,gestor`
-- `csrf`
+Arquivo:
 
-### `app/Core/Database.php`
+```text
+Lab_relator/config/mail.php
+```
 
-Singleton de conexao PDO.
+Variaveis:
 
-Faz:
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USER`
+- `MAIL_PASS`
+- `MAIL_FROM`
+- `MAIL_NAME`
 
-- le `config/database.php`;
-- monta DSN MySQL com `utf8mb4`;
-- cria uma unica instancia PDO por requisicao;
-- usa `PDO::ERRMODE_EXCEPTION`;
-- usa `PDO::FETCH_ASSOC`;
-- desativa `PDO::ATTR_EMULATE_PREPARES`;
-- registra erro tecnico em `error_log()`;
-- lanca erro generico para nao vazar credenciais.
+Se SMTP nao estiver configurado, o reset de senha cai no fallback de desenvolvimento em `storage/logs/reset.log`.
 
-### `app/Core/Middleware/AuthMiddleware.php`
+## 5. Banco de Dados
 
-Middleware de autenticacao e autorizacao.
+Schema principal:
 
-Faz:
+```text
+Lab_relator/database/schema.sql
+```
 
-- verifica se existe usuario logado via `SessionHelper`;
-- se nao houver sessao, grava flash message e redireciona para `/auth/login`;
-- verifica perfil quando a rota usa `role:*`;
-- se perfil nao bater, retorna erro 403.
+Tabelas:
 
-### `app/Core/Middleware/CsrfMiddleware.php`
+- `usuarios`
+- `login_attempts`
+- `password_resets`
+- `laboratorios`
+- `equipamentos`
+- `tipos_problema`
+- `ocorrencia`
+- `ocorrencia_historico`
 
-Middleware de protecao CSRF.
+Seed atual:
 
-Faz:
+- Gestor: `admin@unieinstein.edu.br`
+- Senha: `Admin@2026`
 
-- roda em requisicoes POST/PUT/PATCH/DELETE;
-- procura token em `csrf_token`, `_token` ou header `X-CSRF-TOKEN`;
-- valida com `hash_equals()`;
-- se falhar, grava flash message e redireciona para a pagina anterior ou login.
-
-Na Fase 2, ele esta aplicado nos POSTs de autenticacao:
-
-- `/login`
-- `/auth/login`
-- `/auth/recuperar`
-- `/auth/resetar/{token}`
-
-## 5. Helpers
-
-### `app/Helpers/Csrf.php`
-
-Helper do token CSRF.
-
-Metodos:
-
-- `token()`: cria ou retorna token da sessao;
-- `validate($token)`: valida token recebido;
-- `rotate()`: gera novo token.
-
-O token e guardado em `$_SESSION['csrf_token']`.
-
-### `app/Helpers/SessionHelper.php`
-
-Centraliza acesso a sessao.
-
-Metodos principais:
-
-- `login($user)`: regenera ID de sessao e grava usuario;
-- `logout()`: limpa sessao, cookie e destroi a sessao;
-- `user()`: retorna usuario logado ou `null`;
-- `id()`: retorna ID do usuario;
-- `role()`: retorna perfil;
-- `isAuthenticated()`: indica se ha usuario logado;
-- `flash($type, $message)`: grava mensagem de uso unico;
-- `pullFlash()`: le e remove flash message.
-
-Tambem mantem chaves legadas usadas pelas views antigas:
-
-- `id_usuario`
-- `nome_usuario`
-- `email_usuario`
-- `tipo_usuario`
+Professores e tecnicos sao cadastrados pelo gestor na propria aplicacao.
 
 ## 6. Controllers
 
-### `app/Controllers/BaseController.php`
+### AuthController
 
-Classe pai dos controllers.
+Rotas:
 
-Metodos:
+- `GET /auth/login`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/recuperar`
+- `POST /auth/recuperar`
+- `GET /auth/resetar/{token}`
+- `POST /auth/resetar/{token}`
 
-- `render($view, $data, $useLayout)`;
-- `json($payload, $status)`;
-- `redirect($path)`;
-- `requireLogin()`;
-- `requireRole(...$roles)`;
-- `abort($status)`.
+Regras:
 
-`render()` usa `extract()` para transformar o array de dados em variaveis disponiveis na view.
+- login por usuario ativo;
+- senha com `password_verify`;
+- rate limit por e-mail/IP;
+- logout apenas por POST com CSRF;
+- recuperacao gera token e chama `MailService`;
+- link de reset nao aparece no HTML.
 
-### `app/Controllers/AuthController.php`
+### DashboardController
 
-Responsavel por autenticacao real da Fase 2.
+Renderiza dashboard por perfil e consulta estatisticas em `DashboardModel`.
+
+### LaboratorioController
+
+CRUD administrativo de laboratorios.
+
+### EquipamentoController
+
+CRUD administrativo de equipamentos e endpoint auxiliar:
+
+- `GET /equipamento/por-laboratorio`
+
+### TipoProblemaController
+
+CRUD administrativo de tipos de problema.
+
+### ProfessorController e TecnicoController
+
+Herdam de `UsuarioPerfilController`.
+
+Rotas canonicas:
+
+- `/usuario/professor`
+- `/usuario/tecnico`
+
+Aliases:
+
+- `/professor`
+- `/tecnico`
+
+Regras:
+
+- somente gestor acessa;
+- cria usuario com perfil fixo;
+- edita dados e senha opcional;
+- ativa/desativa usuarios;
+- listas exibem contagens reais de ocorrencias.
+
+### OcorrenciaController
 
 Rotas principais:
 
-- `GET /auth/login` -> `login()`;
-- `POST /auth/login` -> `processLogin()`;
-- `GET /auth/logout` -> `logout()`;
-- `GET /auth/recuperar` -> `recuperar()`;
-- `POST /auth/recuperar` -> `processRecuperar()`;
-- `GET /auth/resetar/{token}` -> `resetar()`;
-- `POST /auth/resetar/{token}` -> `processResetar()`.
+- `GET /ocorrencia`
+- `GET /ocorrencia/criar`
+- `POST /ocorrencia/registrar`
+- `GET /ocorrencia/ver/{id}`
+- `GET /ocorrencia/editar/{id}`
+- `POST /ocorrencia/atualizar/{id}`
+- `POST /ocorrencia/cancelar/{id}`
 
-O login agora:
+Regras:
 
-- normaliza e valida e-mail;
-- valida tamanho minimo da senha;
-- consulta usuario ativo no banco via `UsuarioModel`;
-- usa `password_verify()`;
-- registra tentativa em `login_attempts`;
-- bloqueia apos 5 falhas em janela de 15 minutos por e-mail ou IP;
-- usa `SessionHelper::login()`;
-- rotaciona CSRF apos login bem-sucedido.
+- professor cria ocorrencia;
+- `id_professor` vem da sessao;
+- professor so ve suas proprias ocorrencias;
+- criacao gera historico;
+- nova ocorrencia tenta notificar gestores por e-mail.
 
-Recuperacao de senha:
+### MonitorController
 
-- gera token seguro com `random_bytes()`;
-- armazena apenas `hash('sha256', $token)`;
-- expira tokens anteriores do mesmo usuario;
-- cria token valido por 1 hora;
-- em modo dev, mostra o link na tela e registra em `error_log()`;
-- ainda nao envia e-mail real. Isso fica para a fase de notificacoes.
+Rotas:
 
-### `app/Controllers/DashboardController.php`
+- `GET /monitor`
+- `GET /monitor/historico/{id}`
+- `POST /monitor/atualizar-status`
 
-Controla a pagina inicial apos login.
+Regras:
 
-Faz:
+- tecnico e gestor acessam;
+- mudanca de status passa pela maquina de estados de `OcorrenciaModel`;
+- encerramento tenta notificar professor por e-mail.
 
-- le usuario logado via `SessionHelper`;
-- consulta dados de usuarios e ocorrencias;
-- monta cards diferentes por perfil;
-- trata falhas de banco com mensagem amigavel no dashboard.
+### RelatorioController
 
-Observacao: se a tabela `ocorrencia` ainda nao existir, `DashboardModel` retorna contadores zerados.
+Rotas:
 
-### `app/Controllers/PageController.php`
+- `GET /relatorio`
+- `GET /relatorio/exportar-csv`
+- `GET /relatorio/exportar-pdf`
 
-Controller temporario para manter views existentes acessiveis enquanto CRUDs reais nao foram implementados.
+Regras:
 
-Ele apenas renderiza paginas atuais:
-
-- laboratorios;
-- equipamentos;
-- professores;
-- tecnicos;
-- ocorrencias;
-- monitor;
-- relatorios;
-- tipos de problema.
-
-Na Fase 3, cada modulo deve ganhar controller e model proprios.
+- somente gestor acessa;
+- filtros por data, status, laboratorio, tipo e tecnico;
+- CSV usa `text/csv`;
+- PDF e HTML formatado para impressao.
 
 ## 7. Models
 
-### `app/Models/BaseModel.php`
-
-Classe pai dos models.
-
-Fornece:
-
-- `findAll($conditions, $orderBy)`;
-- `findById($id)`;
-- `insert($data)`;
-- `update($id, $data)`;
-- `delete($id)`;
-- `query($sql, $params)`.
-
-Todos usam prepared statements.
-
-### `app/Models/UsuarioModel.php`
-
-Representa a tabela `usuarios`.
-
-Metodos especificos:
-
-- `findActiveByEmail($email)`;
-- `countByPerfil()`;
-- `countActive()`;
-- `updatePassword($id, $plainPassword)`.
-
-### `app/Models/LoginAttemptModel.php`
-
-Representa a tabela `login_attempts`.
-
-Modelo da Fase 2:
-
-- cada tentativa e registrada como uma linha;
-- `success = 0` indica falha;
-- `success = 1` indica sucesso;
-- bloqueio e calculado por consulta, nao por coluna `bloqueado_ate`.
-
-Regra atual:
-
-- 5 falhas em 15 minutos;
-- verificacao por e-mail ou IP;
-- retorno de tempo restante aproximado.
-
-### `app/Models/PasswordResetModel.php`
-
-Representa a tabela `password_resets`.
-
-Faz:
-
-- cria token de recuperacao;
-- salva apenas hash SHA-256 do token;
-- expira tokens abertos anteriores do usuario;
-- busca token valido;
-- marca token como usado;
-- conta tokens ativos.
-
-### `app/Models/DashboardModel.php`
-
-Model auxiliar para dados do dashboard.
-
-Faz:
-
-- verifica se uma tabela existe;
-- calcula estatisticas de ocorrencias por perfil;
-- retorna zeros se a tabela `ocorrencia` ainda nao existir.
-
-## 8. Views Principais
-
-### `views/layouts/header.php`
-
-Layout principal.
-
-Faz:
-
-- prepara dados do usuario logado;
-- monta itens da sidebar por perfil;
-- inclui CSS e bibliotecas externas;
-- renderiza topbar;
-- exibe flash messages;
-- abre o `<main>`.
-
-### `views/layouts/footer.php`
-
-Fecha o layout e inclui scripts.
-
-### `views/layouts/partials/sidebar_content.php`
-
-Conteudo do menu lateral.
-
-Criado na Fase 1 para corrigir o include ausente que quebrava a sidebar.
-
-### `views/auth/login.php`
-
-Formulario de login.
-
-Inclui:
-
-- campo oculto `csrf_token`;
-- e-mail;
-- senha;
-- link para recuperacao;
-- exibicao de flash message;
-- exibicao de erro de autenticacao.
-
-### `views/auth/recuperar.php`
-
-Formulario para solicitar recuperacao de senha.
-
-Na Fase 2, se o e-mail existir, mostra o link local de teste.
-
-### `views/auth/resetar.php`
-
-Formulario para definir nova senha a partir de um token valido.
-
-### `views/dashboard/index.php`
-
-Dashboard por perfil.
-
-- Gestor: usuarios ativos, professores, tecnicos, falhas de login.
-- Professor: suas ocorrencias, quando tabela existir.
-- Tecnico: chamados visiveis, quando tabela existir.
-- Todos: painel de contexto e tokens de recuperacao ativos.
-
-### `views/errors/403.php`, `404.php`, `500.php`
-
-Paginas de erro HTTP.
-
-## 9. Banco de Dados
-
-### `database/schema_fase1.sql`
-
-Cria tabela `usuarios` e seed inicial.
-
-Usuarios seed:
-
-- `gestor@unieinstein.edu.br` / `Gestor@123`
-- `professor@unieinstein.edu.br` / `Professor@123`
-- `tecnico@unieinstein.edu.br` / `Tecnico@123`
-
-### `database/schema_fase2.sql`
-
-Cria ou garante:
-
-- `usuarios`;
-- `login_attempts`;
-- `password_resets`;
-- seed de usuarios.
-
-#### Tabela `usuarios`
-
-Colunas atuais:
-
-- `id`;
-- `nome`;
-- `email`;
-- `senha`;
-- `perfil`;
-- `ativo`;
-- `created_at`.
-
-#### Tabela `login_attempts`
-
-Colunas atuais:
-
-- `id`;
-- `email`;
-- `ip_address`;
-- `user_agent`;
-- `success`;
-- `attempted_at`.
-
-#### Tabela `password_resets`
-
-Colunas atuais:
-
-- `id`;
-- `usuario_id`;
-- `email`;
-- `token_hash`;
-- `expires_at`;
-- `used_at`;
-- `ip_address`;
-- `created_at`.
-
-## 10. Seguranca Implementada
-
-- Bcrypt para senhas.
-- `password_verify()` no login.
-- Prepared statements em todos os models.
-- CSRF nas rotas POST de auth.
-- `session_regenerate_id(true)` no login.
-- Flash messages de uso unico.
-- Rate limiting de login.
-- Tokens de recuperacao armazenados como hash SHA-256.
-- `htmlspecialchars()` nas views novas.
-- Fallback seguro para arquivos de sessao em `storage/sessions`.
-
-## 11. Fluxos
-
-### Login
-
-1. Usuario acessa `/auth/login`.
-2. View exibe formulario com token CSRF.
-3. POST passa pelo `CsrfMiddleware`.
-4. `AuthController::processLogin()` valida email e senha.
-5. `LoginAttemptModel` verifica bloqueio.
-6. `UsuarioModel` busca usuario ativo.
-7. `password_verify()` valida senha.
-8. Sessao e regenerada.
-9. Usuario vai para `/dashboard`.
-
-### Recuperacao de Senha
-
-1. Usuario acessa `/auth/recuperar`.
-2. Informa e-mail.
-3. POST passa pelo CSRF.
-4. Se e-mail existir, `PasswordResetModel` cria token.
-5. Link e exibido em modo dev.
-6. Usuario acessa `/auth/resetar/{token}`.
-7. Token e validado.
-8. Nova senha e salva com bcrypt.
-9. Token e marcado como usado.
-10. Usuario volta ao login.
-
-### Dashboard
-
-1. Rota `/dashboard` exige `auth`.
-2. Controller identifica perfil.
-3. Dados sao consultados no banco quando disponiveis.
-4. View renderiza cards por perfil.
-
-## 12. Como Rodar Localmente
-
-1. Configure o banco em `Lab_relator/config/database.php`.
-2. Importe `Lab_relator/database/schema_fase2.sql`.
-3. Rode:
-
-```bash
-cd Lab_relator
-composer dump-autoload
-php -S 127.0.0.1:8010 index.php
+- `BaseModel`: CRUD generico e `query` com PDO.
+- `UsuarioModel`: usuarios, perfis, senha e contagens por ocorrencia.
+- `LoginAttemptModel`: tentativas e bloqueio de login.
+- `PasswordResetModel`: tokens de recuperacao.
+- `DashboardModel`: estatisticas por perfil.
+- `LaboratorioModel`: laboratorios.
+- `EquipamentoModel`: equipamentos.
+- `TipoProblemaModel`: tipos de problema.
+- `OcorrenciaModel`: ocorrencias, historico e maquina de estados.
+- `RelatorioModel`: agregacoes e listagem para relatorios.
+
+## 8. Maquina de Estados
+
+Status validos:
+
+- `Nao Atendida`
+- `Em Edicao`
+- `Em Atendimento`
+- `Encerrada`
+
+Transicoes implementadas:
+
+- `Nao Atendida -> Em Edicao`: professor dono.
+- `Nao Atendida -> Em Atendimento`: tecnico ou gestor.
+- `Em Edicao -> Nao Atendida`: professor dono.
+- `Em Edicao -> Em Atendimento`: tecnico ou gestor.
+- `Em Atendimento -> Encerrada`: tecnico ou gestor.
+- `Em Atendimento -> Nao Atendida`: gestor.
+
+Ao iniciar atendimento, `id_tecnico` recebe o ID do tecnico ou gestor que assumiu. Ao encerrar, `data_encerramento` e preenchida. Ao reabrir para `Nao Atendida`, `data_encerramento` e limpa.
+
+## 9. Seguranca
+
+Implementado:
+
+- bcrypt para senhas;
+- `password_verify`;
+- CSRF em POSTs;
+- logout por POST;
+- cookie de sessao com HttpOnly e SameSite;
+- `session_regenerate_id(true)` no login;
+- prepared statements nos models;
+- validacao de identificadores nos helpers genericos;
+- token de reset salvo como hash;
+- output HTML escapado nas views principais;
+- autorizacao por `$_SESSION` e middlewares.
+
+Pontos operacionais:
+
+- configurar SMTP real para envio fora de desenvolvimento;
+- nao versionar `database.local.php`;
+- trocar senhas seed antes de ambiente real.
+
+## 10. Como Rodar
+
+```powershell
+cd "C:\Users\David\OneDrive\Área de Trabalho\Codes\Projeto integrador\Projeto-integrador-1-TADS\Lab_relator"
+composer install
+mysql -u root -p < database/schema.sql
+php config/database.php
+php -S 127.0.0.1:8000 index.php
 ```
 
-4. Acesse:
+Acesso:
 
 ```text
-http://127.0.0.1:8010/auth/login
+http://127.0.0.1:8000/auth/login
 ```
 
-## 13. Validacoes Feitas
+Credencial seed:
 
-Apos a Fase 2:
+```text
+admin@unieinstein.edu.br
+Admin@2026
+```
 
-- `php -l` passou em todos os arquivos PHP fora de `vendor`;
-- `composer dump-autoload` executou com sucesso;
-- login, recuperacao e dashboard carregam no navegador;
-- login real depende do MySQL configurado e do schema importado.
+## 11. Discrepancias Corrigidas Nesta Revisao
 
-## 14. Roadmap
+- README apontava para PDF de instalacao inexistente.
+- README listava professor e tecnico como seeds, mas o schema atual cria apenas gestor.
+- Documento tecnico dizia que logout era GET; agora e POST com CSRF.
+- Documento tecnico dizia que reset exibia link; agora usa `MailService` e fallback em log.
+- Documento tecnico referenciava `schema_fase2.sql`; o schema principal atual e `database/schema.sql`.
+- Documento tecnico tratava cadastros, ocorrencias, monitor, relatorios e notificacoes como roadmap, mas eles ja existem no codigo.
+- Documento tecnico nao citava aliases `/professor` e `/tecnico`.
+- Documentacao nao explicava `database.local.php`, apesar de o codigo aceitar esse arquivo.
 
-### Fase 1 - Base MVC
+## 12. Verificacoes Recomendadas
 
-Concluida:
+```powershell
+Get-ChildItem -Path . -Recurse -Filter *.php |
+  Where-Object { $_.FullName -notmatch '\\vendor\\' } |
+  ForEach-Object { php -l $_.FullName } |
+  Select-String -Pattern 'No syntax errors' -NotMatch
+```
 
-- front controller;
-- router;
-- database singleton;
-- auth middleware;
-- base controller;
-- base model;
-- sidebar corrigida;
-- paginas de erro.
+Resultado esperado: nenhuma linha.
 
-### Fase 2 - Autenticacao Real
+```powershell
+php Lab_relator/config/database.php
+```
 
-Concluida:
-
-- login via banco;
-- bcrypt;
-- CSRF;
-- rate limiting;
-- session helper;
-- recuperacao com token;
-- dashboard por perfil.
-
-### Fase 3 - CRUDs de Cadastro
-
-Proximo alvo:
-
-- `LaboratorioController` e `LaboratorioModel`;
-- `EquipamentoController` e `EquipamentoModel`;
-- controllers/models para professores e tecnicos;
-- `TipoProblemaController`;
-- validacao backend dos formularios.
-
-### Fase 4 - Ocorrencias
-
-Previsto:
-
-- abertura de ocorrencia por professor;
-- atendimento por tecnico;
-- encerramento;
-- historico;
-- monitor real.
-
-### Fase 5 - Notificacoes e Relatorios
-
-Previsto:
-
-- PHPMailer real;
-- e-mail de recuperacao;
-- alertas de ocorrencia;
-- exportacao CSV/PDF;
-- filtros gerenciais.
+Resultado esperado: `[OK] Conexao com banco estabelecida.`

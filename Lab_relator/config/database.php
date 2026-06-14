@@ -6,12 +6,17 @@ declare(strict_types=1);
 // Modificado por: Codex — correção QA
 
 // ── INÍCIO CORREÇÃO QA ──
-$host = getenv('DB_HOST') ?: '127.0.0.1';
-$port = getenv('DB_PORT') ?: '3306';
-$database = getenv('DB_NAME') ?: (getenv('DB_DATABASE') ?: 'lab_relator');
-$username = getenv('DB_USER') ?: (getenv('DB_USERNAME') ?: 'root');
-$password = getenv('DB_PASS') ?: (getenv('DB_PASSWORD') ?: '');
-$charset = getenv('DB_CHARSET') ?: 'utf8mb4';
+// -- INICIO CORRECAO LOCAL --
+$localConfigPath = __DIR__ . '/database.local.php';
+$localConfig = is_file($localConfigPath) ? require $localConfigPath : [];
+
+$host = getenv('DB_HOST') ?: (string) ($localConfig['host'] ?? '127.0.0.1');
+$port = getenv('DB_PORT') ?: (string) ($localConfig['port'] ?? '3306');
+$database = getenv('DB_NAME') ?: (getenv('DB_DATABASE') ?: (string) ($localConfig['database'] ?? 'lab_relator'));
+$username = getenv('DB_USER') ?: (getenv('DB_USERNAME') ?: (string) ($localConfig['username'] ?? 'root'));
+$password = getenv('DB_PASS') ?: (getenv('DB_PASSWORD') ?: (string) ($localConfig['password'] ?? ''));
+$charset = getenv('DB_CHARSET') ?: (string) ($localConfig['charset'] ?? 'utf8mb4');
+// -- FIM CORRECAO LOCAL --
 
 $config = [
     'driver' => 'mysql',
