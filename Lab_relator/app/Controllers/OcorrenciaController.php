@@ -223,12 +223,18 @@ final class OcorrenciaController extends BaseController
         bool $editing = false
     ): void {
         $laboratorios = [];
+        $equipamentos = [];
         $tiposProblema = [];
         $warning = null;
 
         try {
             $laboratorios = (new LaboratorioModel())->listActive();
             $tiposProblema = (new TipoProblemaModel())->listActive();
+
+            $idLaboratorioAtual = (int)($input['id_laboratorio'] ?? $existing['id_laboratorio'] ?? 0);
+            if ($editing && $idLaboratorioAtual > 0) {
+                $equipamentos = (new EquipamentoModel())->listActiveByLaboratorio($idLaboratorioAtual);
+            }
         } catch (Throwable $exception) {
             error_log('[OcorrenciaController] Form data error: ' . $exception->getMessage());
             $warning = 'Nao foi possivel carregar os dados de apoio.';
@@ -237,6 +243,20 @@ final class OcorrenciaController extends BaseController
         $ocorrencia = $editing
             ? array_merge($existing ?? [], $input ?? [])
             : ($input !== null ? $input : null);
+
+        if ($editing) {
+            $this->render('ocorrencias/edit', [
+                'laboratorios' => $laboratorios,
+                'equipamentos' => $equipamentos,
+                'tipos_problema' => $tiposProblema,
+                'tiposProblema' => $tiposProblema,
+                'ocorrencia' => $ocorrencia,
+                'erros' => $errors,
+                'errors' => $errors,
+                'warning' => $warning,
+            ], false);
+            return;
+        }
 
         $this->render('ocorrencias/create', [
             'laboratorios' => $laboratorios,

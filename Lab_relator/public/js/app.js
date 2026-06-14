@@ -142,7 +142,7 @@ const srInitCharCounter = () => {
   const counter = document.getElementById('oc-desc-count');
   if (!desc || !counter) return;
 
-  const LIMIT = 1_000;
+  const LIMIT = desc.maxLength > 0 ? desc.maxLength : 1_000;
   const update = () => {
     const len = [...desc.value].length; // conta chars unicode corretamente
     counter.textContent = `${len.toLocaleString('pt-BR')} / ${LIMIT.toLocaleString('pt-BR')} caracteres`;

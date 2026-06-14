@@ -21,7 +21,6 @@ $laboratorios  = $laboratorios  ?? [];
 $tiposProblema = $tiposProblema ?? [];
 $ocorrencia    = $ocorrencia    ?? null;
 $podeEditar    = $podeEditar    ?? true;
-$idProf        = (int)($_SESSION['id_usuario'] ?? 0);
 $nomeProf      = htmlspecialchars($_SESSION['nome_usuario'] ?? '', ENT_QUOTES, 'UTF-8');
 ?>
 
@@ -73,7 +72,6 @@ $nomeProf      = htmlspecialchars($_SESSION['nome_usuario'] ?? '', ENT_QUOTES, '
 
           <input type="hidden" name="csrf_token"
                  value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>" />
-          <input type="hidden" name="id_professor" value="<?= $idProf ?>" />
           <?php if ($ocorrencia): ?>
             <input type="hidden" name="id" value="<?= (int)($ocorrencia['id'] ?? 0) ?>" />
           <?php endif; ?>

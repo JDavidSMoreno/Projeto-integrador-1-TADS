@@ -1,0 +1,22 @@
+# Dependencias
+/Lab_relator/vendor/
+# composer.lock mantido para fixar versoes instaladas em ambiente academico.
+
+# Logs e sessoes
+/Lab_relator/storage/logs/*.log
+/Lab_relator/storage/sessions/*
+!/Lab_relator/storage/sessions/.gitignore
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Arquivos de ambiente e credenciais
+/Lab_relator/config/mail.php
+.env
+
+# Arquivos temporarios
+test.txt
+*.tmp
